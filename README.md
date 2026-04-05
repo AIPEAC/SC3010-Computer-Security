@@ -3,4 +3,11 @@
 
 ---
 ## Pre-knowledge
-- [How does OGNL work?](/_Notes/OGNL-injection.md)
+- [How does OGNL injection work?](/_Notes/OGNL-injection.md)
+  - Summary of my 3-hour inquiry with **Gemini** on OGNL injection.
+---
+### Structure
+---
+
+## References
+- Gemini: https://gemini.com/
