@@ -29,7 +29,7 @@ CVSS v3 Score: **10.0 (Critical)**
 ## Project Layout
 
 ```
-attack-recreate/
+simulation/
 ├── backend/                          # Vulnerable Struts2 server (Java/Maven)
 │   ├── pom.xml                       # Struts2 2.3.28 (VULNERABLE — do not upgrade)
 │   ├── data/
@@ -45,7 +45,7 @@ attack-recreate/
 │           ├── upload.jsp            # Normal upload form UI
 │           └── success.jsp           # Post-upload confirmation page
 └── attack-script/
-    ├── exploit_cve_2017_5638.ps1     # ← THIS SCRIPT
+    ├── exploit_cve_2017_5638.ps1     # PowerShell exploit (cross-platform)
     └── README.md
 ```
 
@@ -57,15 +57,15 @@ attack-recreate/
 |---|---|---|
 | Java JDK | 8 or 11 | `java -version` |
 | Apache Maven | 3.6+ | `mvn -version` |
-| PowerShell | 5.1+ or Core 7+ | `$PSVersionTable` |
+| PowerShell | Core 7+ | `$PSVersionTable` |
 
 ---
 
 ## Step 1 — Start the Vulnerable Backend
 
-```powershell
+```bash
 # From the workspace root:
-cd SC3010-Computer-Security/attack-recreate/backend
+cd SC3010-Computer-Security/simulation/backend
 mvn tomcat7:run
 ```
 
@@ -82,25 +82,19 @@ The upload form is then available at: **http://localhost:8080/upload.jsp**
 
 Open a **second** terminal (keep the server running in the first).
 
-### Demo mode (safe — proves OGNL evaluation, no OS commands)
-
 ```powershell
-cd SC3010-Computer-Security/attack-recreate/attack-script
+cd SC3010-Computer-Security/simulation/attack-script
+
+# Demo mode (safe — proves OGNL evaluation, no OS commands):
 .\exploit_cve_2017_5638.ps1 -DemoMode
-```
 
-Expected output: the server error message will contain `2` (result of `1+1`) where the `Content-Type` value normally appears, confirming OGNL evaluation.
-
-### Full exploit (executes an OS command)
-
-```powershell
-# Default command is 'whoami':
+# Full exploit (default command: whoami):
 .\exploit_cve_2017_5638.ps1
 
 # Custom command:
 .\exploit_cve_2017_5638.ps1 -Command "id"
 
-# Custom target and command:
+# Custom target + command:
 .\exploit_cve_2017_5638.ps1 -Target "http://localhost:8080/upload.action" -Command "whoami"
 ```
 
