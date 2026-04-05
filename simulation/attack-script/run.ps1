@@ -1,4 +1,4 @@
-s = Read-Host "Enter 0 to run the exploit in safe demo mode, or 1 for full RCE" -AsSecureString | ConvertFrom-SecureString | ForEach-Object {
+$s = Read-Host "Enter 0 to run the exploit in safe demo mode, or 1 for full RCE" -AsSecureString | ConvertFrom-SecureString | ForEach-Object {
 	switch ($_ -replace '"', '') {
 		'0' { "Running in safe demo mode...`n" }
 		'1' { "Running with full RCE...`n" }
