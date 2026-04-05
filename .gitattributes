@@ -12,6 +12,10 @@
 *.html text eol=lf
 *.css text eol=lf
 *.js text eol=lf
+*.sh text eol=lf
+# even powershell
+*.ps1 text eol=lf
+
 
 # Binary files — no EOL conversion
 *.png binary
