@@ -3,11 +3,11 @@ name: Build CVE-2017-5638 Struts2 Backend
 on:
   push:
     paths:
-      - "attack-recreate/backend/**"
+      - "simulation/backend/**"
       - ".github/workflows/build-backend.yml"
   pull_request:
     paths:
-      - "attack-recreate/backend/**"
+      - "simulation/backend/**"
   workflow_dispatch:
 
 jobs:
@@ -27,12 +27,12 @@ jobs:
           cache: maven
 
       - name: Build with Maven
-        working-directory: attack-recreate/backend
+        working-directory: simulation/backend
         run: mvn --batch-mode package -DskipTests
 
       - name: Upload WAR artifact
         uses: actions/upload-artifact@v4
         with:
           name: struts2-demo-war
-          path: attack-recreate/backend/target/*.war
+          path: simulation/backend/target/*.war
           retention-days: 14
