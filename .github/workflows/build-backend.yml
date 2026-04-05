@@ -1,0 +1,36 @@
+name: Build CVE-2017-5638 Struts2 Backend
+
+on:
+  push:
+    paths:
+      - "attack-recreate/backend/**"
+  pull_request:
+    paths:
+      - "attack-recreate/backend/**"
+
+jobs:
+  build:
+    name: Maven Package (Java 11)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
+        with:
+          java-version: "11"
+          distribution: "temurin"
+          cache: maven
+
+      - name: Build with Maven
+        working-directory: attack-recreate/backend
+        run: mvn --batch-mode package -DskipTests
+
+      - name: Upload WAR artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: struts2-demo-war
+          path: attack-recreate/backend/target/*.war
+          retention-days: 14
