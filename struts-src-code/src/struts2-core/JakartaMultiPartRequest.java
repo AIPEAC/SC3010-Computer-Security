@@ -1,4 +1,4 @@
-﻿/*
+/*
  * $Id$
  *
  * Licensed to the Apache Software Foundation (ASF) under one
@@ -19,6 +19,24 @@
  * under the License.
  */
 
+// ============================================================
+// SOURCE: apache/struts @ STRUTS_2_3_28
+//   core/src/main/java/org/apache/struts2/dispatcher/multipart/JakartaMultiPartRequest.java
+//
+// VULNERABLE CODE -- CVE-2017-5638 ENTRY POINT
+//
+// The vulnerability is in parse() -> buildErrorMessage():
+//   1. A multipart request with a malicious Content-Type header arrives.
+//   2. The Commons FileUpload library throws an exception whose message
+//      contains the raw Content-Type value.
+//   3. buildErrorMessage() passes that message to LocalizedTextUtil.findText(),
+//      which evaluates OGNL expressions embedded in the string.
+//   4. Because the Content-Type value was attacker-controlled, arbitrary OGNL
+//      (and therefore arbitrary Java code) executes on the server.
+//
+// Attack timeline: exploit first used ~May 13, 2017 in Equifax breach.
+// ============================================================
+
 package org.apache.struts2.dispatcher.multipart;
 
 import com.opensymphony.xwork2.LocaleProvider;
@@ -30,7 +48,6 @@ import org.apache.commons.fileupload.FileItem;
 import org.apache.commons.fileupload.FileUploadBase;
 import org.apache.commons.fileupload.FileUploadException;
 import org.apache.commons.fileupload.RequestContext;
-import org.apache.commons.fileupload.disk.DiskFileItem;
 import org.apache.commons.fileupload.disk.DiskFileItemFactory;
 import org.apache.commons.fileupload.servlet.ServletFileUpload;
 import org.apache.struts2.StrutsConstants;
@@ -41,30 +58,20 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Enumeration;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
 
 /**
  * Multipart form data request adapter for Jakarta Commons Fileupload package.
+ *
+ * VULNERABLE: The Content-Type header from the HTTP request is passed through
+ * an exception message into OGNL evaluation without sanitization.
  */
 public class JakartaMultiPartRequest implements MultiPartRequest {
 
     static final Logger LOG = LoggerFactory.getLogger(JakartaMultiPartRequest.class);
 
-    // maps parameter name -> List of FileItem objects
-    protected Map<String, List<FileItem>> files = new HashMap<String, List<FileItem>>();
-
-    // maps parameter name -> List of param values
-    protected Map<String, List<String>> params = new HashMap<String, List<String>>();
-
-    // any errors while processing this request
     protected List<String> errors = new ArrayList<String>();
-
     protected long maxSize;
     private Locale defaultLocale = Locale.ENGLISH;
 
@@ -79,12 +86,12 @@ public class JakartaMultiPartRequest implements MultiPartRequest {
     }
 
     /**
-     * Creates a new request wrapper to handle multi-part data using methods adapted from Jason Pell's
-     * multipart classes (see class description).
+     * VULNERABLE METHOD -- entry point for CVE-2017-5638.
      *
-     * @param saveDir the directory to save off the file
-     * @param request the request containing the multipart
-     * @throws java.io.IOException is thrown if encoding fails.
+     * When Commons FileUpload cannot parse the Content-Type (because the
+     * attacker replaced it with an OGNL payload), it throws an exception.
+     * The catch block here calls buildErrorMessage(e, ...) -- which triggers
+     * OGNL evaluation of the attacker-supplied Content-Type string.
      */
     public void parse(HttpServletRequest request, String saveDir) throws IOException {
         try {
@@ -94,6 +101,7 @@ public class JakartaMultiPartRequest implements MultiPartRequest {
             if (LOG.isWarnEnabled()) {
                 LOG.warn("Request exceeded size limit!", e);
             }
+            // VULNERABLE: e.getMessage() may contain the attacker-supplied Content-Type
             String errorMessage = buildErrorMessage(e, new Object[]{e.getPermittedSize(), e.getActualSize()});
             if (!errors.contains(errorMessage)) {
                 errors.add(errorMessage);
@@ -102,6 +110,8 @@ public class JakartaMultiPartRequest implements MultiPartRequest {
             if (LOG.isWarnEnabled()) {
                 LOG.warn("Unable to parse request", e);
             }
+            // VULNERABLE: e.getMessage() contains the raw Content-Type header value
+            // which is passed to LocalizedTextUtil.findText() -> OGNL evaluation
             String errorMessage = buildErrorMessage(e, new Object[]{});
             if (!errors.contains(errorMessage)) {
                 errors.add(errorMessage);
@@ -115,288 +125,63 @@ public class JakartaMultiPartRequest implements MultiPartRequest {
         }
     }
 
+    /**
+     * VULNERABLE METHOD -- builds an error message from an exception.
+     *
+     * Calls LocalizedTextUtil.findText(), which internally calls
+     * TextParseUtil.translateVariables(), which evaluates any %{...}
+     * OGNL expressions found in the message string.
+     *
+     * Because the message originates from the exception thrown by
+     * Commons FileUpload when it rejects the Content-Type header,
+     * and the Content-Type was attacker-controlled, this evaluates
+     * arbitrary OGNL as the server process.
+     */
     protected String buildErrorMessage(Throwable e, Object[] args) {
         String errorKey = "struts.messages.upload.error." + e.getClass().getSimpleName();
         if (LOG.isDebugEnabled()) {
             LOG.debug("Preparing error message for key: [#0]", errorKey);
         }
+        // findText falls back to e.getMessage() when the key is not found,
+        // then passes that string through OGNL variable translation.
         return LocalizedTextUtil.findText(this.getClass(), errorKey, defaultLocale, e.getMessage(), args);
     }
 
-    protected void processUpload(HttpServletRequest request, String saveDir) throws FileUploadException, UnsupportedEncodingException {
+    protected void processUpload(HttpServletRequest request, String saveDir)
+            throws FileUploadException, UnsupportedEncodingException {
         for (FileItem item : parseRequest(request, saveDir)) {
-            if (LOG.isDebugEnabled()) {
-                LOG.debug("Found item " + item.getFieldName());
-            }
-            if (item.isFormField()) {
-                processNormalFormField(item, request.getCharacterEncoding());
-            } else {
-                processFileField(item);
-            }
+            // file/form-field processing -- not relevant to the exploit
         }
     }
 
-    protected void processFileField(FileItem item) {
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("Item is a file upload");
-        }
-
-        // Skip file uploads that don't have a file name - meaning that no file was selected.
-        if (item.getName() == null || item.getName().trim().length() < 1) {
-            LOG.debug("No file has been uploaded for the field: " + item.getFieldName());
-            return;
-        }
-
-        List<FileItem> values;
-        if (files.get(item.getFieldName()) != null) {
-            values = files.get(item.getFieldName());
-        } else {
-            values = new ArrayList<FileItem>();
-        }
-
-        values.add(item);
-        files.put(item.getFieldName(), values);
-    }
-
-    protected void processNormalFormField(FileItem item, String charset) throws UnsupportedEncodingException {
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("Item is a normal form field");
-        }
-        List<String> values;
-        if (params.get(item.getFieldName()) != null) {
-            values = params.get(item.getFieldName());
-        } else {
-            values = new ArrayList<String>();
-        }
-
-        // note: see http://jira.opensymphony.com/browse/WW-633
-        // basically, in some cases the charset may be null, so
-        // we're just going to try to "other" method (no idea if this
-        // will work)
-        if (charset != null) {
-            values.add(item.getString(charset));
-        } else {
-            values.add(item.getString());
-        }
-        params.put(item.getFieldName(), values);
-        item.delete();
-    }
-
-    protected List<FileItem> parseRequest(HttpServletRequest servletRequest, String saveDir) throws FileUploadException {
-        DiskFileItemFactory fac = createDiskFileItemFactory(saveDir);
-        ServletFileUpload upload = createServletFileUpload(fac);
-        return upload.parseRequest(createRequestContext(servletRequest));
-    }
-
-    protected ServletFileUpload createServletFileUpload(DiskFileItemFactory fac) {
-        ServletFileUpload upload = new ServletFileUpload(fac);
-        upload.setSizeMax(maxSize);
-        return upload;
-    }
-
-    protected DiskFileItemFactory createDiskFileItemFactory(String saveDir) {
+    protected List<FileItem> parseRequest(HttpServletRequest servletRequest, String saveDir)
+            throws FileUploadException {
         DiskFileItemFactory fac = new DiskFileItemFactory();
-        // Make sure that the data is written to file
         fac.setSizeThreshold(0);
         if (saveDir != null) {
             fac.setRepository(new File(saveDir));
         }
-        return fac;
-    }
-
-    /* (non-Javadoc)
-     * @see org.apache.struts2.dispatcher.multipart.MultiPartRequest#getFileParameterNames()
-     */
-    public Enumeration<String> getFileParameterNames() {
-        return Collections.enumeration(files.keySet());
-    }
-
-    /* (non-Javadoc)
-     * @see org.apache.struts2.dispatcher.multipart.MultiPartRequest#getContentType(java.lang.String)
-     */
-    public String[] getContentType(String fieldName) {
-        List<FileItem> items = files.get(fieldName);
-
-        if (items == null) {
-            return null;
-        }
-
-        List<String> contentTypes = new ArrayList<String>(items.size());
-        for (FileItem fileItem : items) {
-            contentTypes.add(fileItem.getContentType());
-        }
-
-        return contentTypes.toArray(new String[contentTypes.size()]);
-    }
-
-    /* (non-Javadoc)
-     * @see org.apache.struts2.dispatcher.multipart.MultiPartRequest#getFile(java.lang.String)
-     */
-    public File[] getFile(String fieldName) {
-        List<FileItem> items = files.get(fieldName);
-
-        if (items == null) {
-            return null;
-        }
-
-        List<File> fileList = new ArrayList<File>(items.size());
-        for (FileItem fileItem : items) {
-            File storeLocation = ((DiskFileItem) fileItem).getStoreLocation();
-            if (fileItem.isInMemory() && storeLocation != null && !storeLocation.exists()) {
-                try {
-                    storeLocation.createNewFile();
-                } catch (IOException e) {
-                    if (LOG.isErrorEnabled()) {
-                        LOG.error("Cannot write uploaded empty file to disk: " + storeLocation.getAbsolutePath(), e);
-                    }
-                }
-            }
-            fileList.add(storeLocation);
-        }
-
-        return fileList.toArray(new File[fileList.size()]);
-    }
-
-    /* (non-Javadoc)
-     * @see org.apache.struts2.dispatcher.multipart.MultiPartRequest#getFileNames(java.lang.String)
-     */
-    public String[] getFileNames(String fieldName) {
-        List<FileItem> items = files.get(fieldName);
-
-        if (items == null) {
-            return null;
-        }
-
-        List<String> fileNames = new ArrayList<String>(items.size());
-        for (FileItem fileItem : items) {
-            fileNames.add(getCanonicalName(fileItem.getName()));
-        }
-
-        return fileNames.toArray(new String[fileNames.size()]);
-    }
-
-    /* (non-Javadoc)
-     * @see org.apache.struts2.dispatcher.multipart.MultiPartRequest#getFilesystemName(java.lang.String)
-     */
-    public String[] getFilesystemName(String fieldName) {
-        List<FileItem> items = files.get(fieldName);
-
-        if (items == null) {
-            return null;
-        }
-
-        List<String> fileNames = new ArrayList<String>(items.size());
-        for (FileItem fileItem : items) {
-            fileNames.add(((DiskFileItem) fileItem).getStoreLocation().getName());
-        }
-
-        return fileNames.toArray(new String[fileNames.size()]);
-    }
-
-    /* (non-Javadoc)
-     * @see org.apache.struts2.dispatcher.multipart.MultiPartRequest#getParameter(java.lang.String)
-     */
-    public String getParameter(String name) {
-        List<String> v = params.get(name);
-        if (v != null && v.size() > 0) {
-            return v.get(0);
-        }
-
-        return null;
-    }
-
-    /* (non-Javadoc)
-     * @see org.apache.struts2.dispatcher.multipart.MultiPartRequest#getParameterNames()
-     */
-    public Enumeration<String> getParameterNames() {
-        return Collections.enumeration(params.keySet());
-    }
-
-    /* (non-Javadoc)
-     * @see org.apache.struts2.dispatcher.multipart.MultiPartRequest#getParameterValues(java.lang.String)
-     */
-    public String[] getParameterValues(String name) {
-        List<String> v = params.get(name);
-        if (v != null && v.size() > 0) {
-            return v.toArray(new String[v.size()]);
-        }
-
-        return null;
-    }
-
-    /* (non-Javadoc)
-     * @see org.apache.struts2.dispatcher.multipart.MultiPartRequest#getErrors()
-     */
-    public List<String> getErrors() {
-        return errors;
+        ServletFileUpload upload = new ServletFileUpload(fac);
+        upload.setSizeMax(maxSize);
+        // createRequestContext wraps the servlet request so Commons FileUpload can read
+        // the Content-Type.  That Content-Type is what the attacker poisons.
+        return upload.parseRequest(createRequestContext(servletRequest));
     }
 
     /**
-     * Returns the canonical name of the given file.
-     *
-     * @param filename the given file
-     * @return the canonical name of the given file
-     */
-    private String getCanonicalName(String filename) {
-        int forwardSlash = filename.lastIndexOf("/");
-        int backwardSlash = filename.lastIndexOf("\\");
-        if (forwardSlash != -1 && forwardSlash > backwardSlash) {
-            filename = filename.substring(forwardSlash + 1, filename.length());
-        } else if (backwardSlash != -1 && backwardSlash >= forwardSlash) {
-            filename = filename.substring(backwardSlash + 1, filename.length());
-        }
-
-        return filename;
-    }
-
-    /**
-     * Creates a RequestContext needed by Jakarta Commons Upload.
-     *
-     * @param req the request.
-     * @return a new request context.
+     * Wraps the HttpServletRequest into a Commons FileUpload RequestContext.
+     * getContentType() here returns req.getContentType() -- the attacker-controlled value.
      */
     protected RequestContext createRequestContext(final HttpServletRequest req) {
         return new RequestContext() {
-            public String getCharacterEncoding() {
-                return req.getCharacterEncoding();
-            }
-
-            public String getContentType() {
-                return req.getContentType();
-            }
-
-            public int getContentLength() {
-                return req.getContentLength();
-            }
-
+            public String getCharacterEncoding() { return req.getCharacterEncoding(); }
+            public String getContentType()       { return req.getContentType(); }
+            public int    getContentLength()     { return req.getContentLength(); }
             public InputStream getInputStream() throws IOException {
                 InputStream in = req.getInputStream();
-                if (in == null) {
-                    throw new IOException("Missing content in the request");
-                }
+                if (in == null) throw new IOException("Missing content in the request");
                 return req.getInputStream();
             }
         };
     }
-
-    /* (non-Javadoc)
-    * @see org.apache.struts2.dispatcher.multipart.MultiPartRequest#cleanUp()
-    */
-    public void cleanUp() {
-        Set<String> names = files.keySet();
-        for (String name : names) {
-            List<FileItem> items = files.get(name);
-            for (FileItem item : items) {
-                if (LOG.isDebugEnabled()) {
-                    String msg = LocalizedTextUtil.findText(this.getClass(), "struts.messages.removing.file",
-                            Locale.ENGLISH, "no.message.found", new Object[]{name, item});
-                    LOG.debug(msg);
-                }
-                if (!item.isInMemory()) {
-                    item.delete();
-                }
-            }
-        }
-    }
-
 }
