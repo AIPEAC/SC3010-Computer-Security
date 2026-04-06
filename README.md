@@ -12,7 +12,7 @@ This repo contains:
 
 ---
 
-## Attack Call Chain
+## Attack Call Chain Diagram
 
 The diagram below traces a single malicious HTTP POST from the attacker to arbitrary OS command execution on the server.  
 For the full payload breakdown and source-file table, see [state-machine-diagram/cve-2017-5638-attack-chain.md](state-machine-diagram/cve-2017-5638-attack-chain.md).
@@ -71,8 +71,6 @@ sequenceDiagram
 
     Runtime     -->> Attacker:    command output (OOB channel / HTTP response body)
 ```
-
-For full details — annotated OGNL payload, source-file map, and step descriptions — see [state-machine-diagram/cve-2017-5638-attack-chain.md](state-machine-diagram/cve-2017-5638-attack-chain.md).
 
 ---
 
