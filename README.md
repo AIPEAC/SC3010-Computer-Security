@@ -12,7 +12,16 @@ This repo contains:
 
 ---
 
-## Attack State Machine
+## Background Knowledge
+- [How does OGNL injection work?](_note/OGNL-injection-introduction.md)
+
+---
+## Exploit Simulation
+- See [attack-recreate/attack-script/README.md](attack-recreate/attack-script/README.md) for setup and usage instructions.
+
+---
+
+## Attack State Machine Diagram
 
 The diagram below shows each decision branch in the Struts2 request pipeline. The red path is the one the attacker forces; grey `→ ...` branches are safe paths that don't apply during the exploit.
 
@@ -71,12 +80,6 @@ For a sequence diagram view and annotated OGNL payload breakdown, see [diagrams/
 
 ---
 
-## Pre-knowledge
-- [How does OGNL injection work?](_note/OGNL-injection-introduction.md)
-  - Summary of my 3-hour inquiry with **Gemini** on OGNL injection.
-
----
-
 ## Repository Structure
 
 ```
@@ -94,14 +97,6 @@ SC3010-Computer-Security/
 ├── diagrams/                 # State-machine + sequence diagrams, annotated OGNL payload
 └── _notes/                   # Background reading
 ```
-
-See [attack-recreate/attack-script/README.md](attack-recreate/attack-script/README.md) for setup and usage instructions.
-
----
-
-## References
-- Gemini: https://gemini.com/
-- Struts2 repo on GitHub, branch 2.3.28: https://github.com/apache/struts/tree/STRUTS_2_3_28
 
 ---
 
@@ -122,6 +117,9 @@ Apache Struts 2 bundles additional third-party components, each governed by thei
 | XWork | [`struts-src-code/licenses/XWORK-LICENSE.txt`](struts-src-code/licenses/XWORK-LICENSE.txt) |
 | FreeMarker | [`struts-src-code/licenses/FREEMARKER-LICENSE.txt`](struts-src-code/licenses/FREEMARKER-LICENSE.txt) |
 
-Source references:
+---
+
+## Source References:
 - [apache/struts @ STRUTS\_2\_3\_28](https://github.com/apache/struts/tree/STRUTS_2_3_28) — Struts2 core and XWork
 - [jkuhnert/ognl](https://github.com/jkuhnert/ognl) — OGNL 3.0.x
+- [Gemini](https://gemini.com/) — Consultation on general OGNL languages.
