@@ -37,7 +37,7 @@ SC3010-Computer-Security/
 
 ---
 ## Exploit Simulation
-- See [simulation/attack-script/README.md](attack-recreate/attack-script/README.md) for setup and usage instructions.
+- See [simulation/attack-script/README.md](simulation/attack-script/README.md) for setup and usage instructions.
 
 ---
 
