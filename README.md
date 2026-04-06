@@ -11,7 +11,7 @@ This repo contains:
 - Annotated **reference source files** from Apache Struts 2.3.28 mapping each step of the call chain.
 
 ---
-## Background-knowledge
+## Background Knowledge
 - [How does OGNL injection work?](_note/OGNL-injection-introduction.md)
 ---
 
