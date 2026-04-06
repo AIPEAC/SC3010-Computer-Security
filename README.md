@@ -102,12 +102,6 @@ See [attack-recreate/attack-script/README.md](attack-recreate/attack-script/READ
 
 ---
 
-## References
-- Gemini: https://gemini.com/
-- Struts2 repo on GitHub, branch 2.3.28: https://github.com/apache/struts/tree/STRUTS_2_3_28
-
----
-
 ## Third-Party Software Notices
 
 This repository reproduces portions of **Apache Struts 2.3.28** source code for academic security research purposes.
@@ -125,6 +119,10 @@ Apache Struts 2 bundles additional third-party components, each governed by thei
 | XWork | [`struts-src-code/licenses/XWORK-LICENSE.txt`](struts-src-code/licenses/XWORK-LICENSE.txt) |
 | FreeMarker | [`struts-src-code/licenses/FREEMARKER-LICENSE.txt`](struts-src-code/licenses/FREEMARKER-LICENSE.txt) |
 
+---
+
 Source references:
 - [apache/struts @ STRUTS\_2\_3\_28](https://github.com/apache/struts/tree/STRUTS_2_3_28) — Struts2 core and XWork
 - [jkuhnert/ognl](https://github.com/jkuhnert/ognl) — OGNL 3.0.x
+- Gemini: https://gemini.com/
+---
