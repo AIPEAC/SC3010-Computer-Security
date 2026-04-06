@@ -112,6 +112,9 @@ public class JakartaMultiPartRequest implements MultiPartRequest {
             }
             // VULNERABLE: e.getMessage() contains the raw Content-Type header value
             // which is passed to LocalizedTextUtil.findText() -> OGNL evaluation
+            // ► CALL CHAIN — STEP 5 → STEP 6
+            //   JakartaMultiPartRequest.parse() catches InvalidContentTypeException
+            //     → JakartaMultiPartRequest.buildErrorMessage()
             String errorMessage = buildErrorMessage(e, new Object[]{});
             if (!errors.contains(errorMessage)) {
                 errors.add(errorMessage);
@@ -144,6 +147,12 @@ public class JakartaMultiPartRequest implements MultiPartRequest {
         }
         // findText falls back to e.getMessage() when the key is not found,
         // then passes that string through OGNL variable translation.
+        // ► CALL CHAIN — STEP 6 → STEP 7 (RCE)
+        //   LocalizedTextUtil.findText() → TextParseUtil.translateVariables()
+        //     → OGNL evaluates %{...} in Content-Type string:
+        //       7a. clears OgnlUtil.excludedClasses / excludedPackageNames sandbox  [see OgnlUtil.java]
+        //       7b. sets OgnlContext.DEFAULT_MEMBER_ACCESS (unrestricted reflection) [see OgnlContext.java]
+        //       7c. calls Runtime.getRuntime().exec(cmd)  →  RCE
         return LocalizedTextUtil.findText(this.getClass(), errorKey, defaultLocale, e.getMessage(), args);
     }
 

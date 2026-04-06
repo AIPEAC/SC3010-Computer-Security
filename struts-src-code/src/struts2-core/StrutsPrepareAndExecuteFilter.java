@@ -63,7 +63,9 @@ public class StrutsPrepareAndExecuteFilter implements Filter {
                 prepare.createActionContext(request, response);
                 prepare.assignDispatcherToThread();
 
-                // Multipart handoff starts here.
+                // ► CALL CHAIN — STEP 1 → STEP 2
+                //   StrutsPrepareAndExecuteFilter.doFilter()
+                //     → PrepareOperations.wrapRequest()    [see PrepareOperations.java]
                 request = prepare.wrapRequest(request);
 
                 ActionMapping mapping = prepare.findActionMapping(request, response, true);

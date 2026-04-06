@@ -45,10 +45,15 @@ public class Dispatcher {
             return request;
         }
 
+        // ► CALL CHAIN — STEP 3a
+        //   Dispatcher.wrapRequest() reads Content-Type — attacker-controlled value arrives here
         String contentType = request.getContentType();
         if (contentType != null && contentType.contains("multipart/form-data")) {
             MultiPartRequest mpr = getMultiPartRequest();
             LocaleProvider provider = getContainer().getInstance(LocaleProvider.class);
+            // ► CALL CHAIN — STEP 3b → STEP 4
+            //   "multipart/form-data" detected
+            //     → new MultiPartRequestWrapper(...)    [see MultiPartRequestWrapper.java]
             request = new MultiPartRequestWrapper(
                     mpr,
                     request,

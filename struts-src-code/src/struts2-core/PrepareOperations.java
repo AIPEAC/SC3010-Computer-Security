@@ -36,6 +36,9 @@ public class PrepareOperations {
     public HttpServletRequest wrapRequest(HttpServletRequest oldRequest) throws ServletException {
         HttpServletRequest request = oldRequest;
         try {
+            // ► CALL CHAIN — STEP 2 → STEP 3
+            //   PrepareOperations.wrapRequest()
+            //     → Dispatcher.wrapRequest()    [see Dispatcher.java]
             request = dispatcher.wrapRequest(request);
             org.apache.struts2.ServletActionContext.setRequest(request);
         } catch (IOException e) {

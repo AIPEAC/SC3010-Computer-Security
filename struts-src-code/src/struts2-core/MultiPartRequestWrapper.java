@@ -51,7 +51,9 @@ public class MultiPartRequestWrapper extends StrutsRequestWrapper {
         defaultLocale = provider.getLocale();
         setLocale(request);
         try {
-            // This line is the direct jump into JakartaMultiPartRequest.parse().
+            // ► CALL CHAIN — STEP 4 → STEP 5
+            //   MultiPartRequestWrapper constructor
+            //     → JakartaMultiPartRequest.parse()    [see JakartaMultiPartRequest.java]
             multi.parse(request, saveDir);
             for (String error : multi.getErrors()) {
                 addError(error);
